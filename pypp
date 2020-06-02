@@ -1,0 +1,12 @@
+import sys
+import re
+
+
+include_directive = re.compile("^\s*@include\s<(.+)>\s*$")
+define_directive = re.compile("^\s*@define\s([^\s]+.*)")
+
+for line in sys.stdin:
+    match_line = include_directive.match(line)
+    if match_line:
+        print(f"!{match_line.group(1)}!", end='', file=sys.stdout)
+    print(f">>>{line}<<<", end='', file=sys.stdout)
