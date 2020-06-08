@@ -3,7 +3,12 @@ import re
 
 
 include_directive = re.compile("^\s*@include\s<(.+)>\s*$")
-define_directive = re.compile("^\s*@define\s([^\s]+.*)")
+define_directive = re.compile("^\s*@define\s([^\s]+)(.*)$")
+undef_directive = re.compile("^\s*@undef\s([^\s]+)\s*$")
+ifdef_directive = re.compile("^\s*@ifdef\s([^\s]+)\s*$")
+ifundef_directive = re.compile("^\s*@ifundef\s([^\s]+)\s*$")
+end_directive = re.compile("^\s*@end\s*$")
+
 
 for line in sys.stdin:
     match_line = include_directive.match(line)
