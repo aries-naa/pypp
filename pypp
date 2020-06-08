@@ -15,3 +15,7 @@ for line in sys.stdin:
     if match_line:
         print(f"!{match_line.group(1)}!", end='', file=sys.stdout)
     print(f">>>{line}<<<", end='', file=sys.stdout)
+
+
+def pypp():
+    pass
