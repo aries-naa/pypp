@@ -25,5 +25,11 @@ for line in sys.stdin:
     print(f">>>{line}<<<", end='', file=sys.stdout)
 
 
-def pypp():
+# S - правило вывода.
+def pypp_flat():
+    pass
+
+
+# D - правило вывода.
+def pypp_condition():
     pass
