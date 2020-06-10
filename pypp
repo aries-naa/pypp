@@ -1,3 +1,11 @@
+# Грамматика для @ifdef, @ifndef:
+# S -> line S
+# S -> @if D S
+# S -> /-
+# D -> @endif
+# D -> line D
+# D -> @if D D
+
 import sys
 import re
 
