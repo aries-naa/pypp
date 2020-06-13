@@ -1,10 +1,17 @@
+#!/bin/env python3
+
 # Грамматика для @ifdef, @ifndef:
 # S -> line S
 # S -> @if D S
 # S -> /-
 # D -> @endif
 # D -> line D
-# D -> @if D D
+# D -> @ifdef D D
+# D -> @ifndef D D
+# D -> @else E
+# E -> line E
+# E -> @endif
+# E -> @ifdef D E
 
 import sys
 import re
@@ -32,4 +39,9 @@ def pypp_flat():
 
 # D - правило вывода.
 def pypp_condition():
+    pass
+
+
+# E - правило вывода.
+def pypp_else():
     pass
