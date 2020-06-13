@@ -17,20 +17,98 @@ import sys
 import re
 
 
-include_directive = re.compile("^\s*@include\s<(.+)>\s*$")
-define_directive = re.compile("^\s*@define\s([^\s]+)(.*)$")
-undef_directive = re.compile("^\s*@undef\s([^\s]+)\s*$")
-ifdef_directive = re.compile("^\s*@ifdef\s([^\s]+)\s*$")
-ifundef_directive = re.compile("^\s*@ifundef\s([^\s]+)\s*$")
-end_directive = re.compile("^\s*@end\s*$")
+class FileReader:
+    
+    def __init__(self, file):
+        self.file = file
+        self.file_stack = []
+        
+    def push(self, file):
+        self.file_stack.append(self.file)
+        self.file = file
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while True:
+            try:
+                return next(self.file)
+            except StopIteration:
+                try:
+                    self.file = self.file_stack.pop()
+                except IndexError:
+                    raise StopIteration
+                except StopIteration:
+                    pass
 
 
-for line in sys.stdin:
-    match_line = include_directive.match(line)
-    if match_line:
-        print(f"!{match_line.group(1)}!", end='', file=sys.stdout)
-    print(f">>>{line}<<<", end='', file=sys.stdout)
+class Directive:
 
+    def __init__(self, line):
+        self.line = line
+
+    def subst(self):
+        pass
+
+    def run(self):
+        raise ValueError
+
+
+class IncludeDirective(Directive):
+
+    __regex__ = re.compile("^\s*@include\s<(.+)>\s*$")
+
+    def __init__(self, line):
+        match_line = self.__regex__.match(line)
+        if match_line:
+            super().__init__(match_line.group(1))
+        else:
+            raise ValueError
+
+    def run(self):
+        print(f">>>include {self.line}<<<", end='')
+
+
+class LineDirective(Directive):
+
+    def __init__(self, line):
+        super().__init__(line)
+
+    def run(self):
+        print(f">>>{self.line}<<<", end='')
+
+
+#define_directive = re.compile("^\s*@define\s([^\s]+)(.*)$")
+#undef_directive = re.compile("^\s*@undef\s([^\s]+)\s*$")
+#ifdef_directive = re.compile("^\s*@ifdef\s([^\s]+)\s*$")
+#ifundef_directive = re.compile("^\s*@ifundef\s([^\s]+)\s*$")
+#end_directive = re.compile("^\s*@end\s*$")
+directives = [
+    IncludeDirective,
+]
+
+
+def ident_line(line):
+    for directive in directives:
+        try:
+            return directive(line)
+        except ValueError:
+            pass
+
+    return LineDirective(line)
+    
+
+input_file = FileReader(sys.stdin)
+for line in input_file:
+    # чтение строки.
+    # распознание директив.
+    # подстановка переменных.
+    # выполение директив/вывод строки.
+    directive = ident_line(line)
+    directive.subst()
+    directive.run()
+    
 
 # S - правило вывода.
 def pypp_flat():
