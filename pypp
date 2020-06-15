@@ -72,7 +72,7 @@ class Directive:
             self.line = self.line.replace(var_def, pypp_context.definition[var_def])
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
-        raise ValueError
+        raise ValueError(f"Error directive: {self.line}")
 
     @classmethod
     def check(cls, input_line):
@@ -85,14 +85,15 @@ class Directive:
 
 class IncludeDirective(Directive):
 
-    __regex__ = re.compile(r"^\s*%include\s<(.+)>\s*$")
+    __regex__ = re.compile(r"^\s*%include\s<(.*)>\s*$")
+    __value__ = re.compile(r"^\s*%include\s<(.+)>\s*$")
 
     def __init__(self, input_line):
-        match_line = self.__regex__.match(input_line)
+        match_line = self.__value__.match(input_line)
         if match_line:
             super().__init__(match_line.group(1))
         else:
-            raise ValueError
+            raise ValueError(f"Error in %include: {input_line}")
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
         # подстановка.
@@ -109,7 +110,7 @@ class IncludeDirective(Directive):
                     file_name = test_file_name
 
         if file_name is None:
-            raise FileNotFoundError
+            raise FileNotFoundError(f"<{self.line}>")
 
         # отправить файл в обработку.
         pypp_input_file.push(open(file_name, "r", encoding="utf-8"))
@@ -128,19 +129,18 @@ class DefineDirective(Directive):
             self.variable = variable
             super().__init__(value)
         else:
-            raise ValueError
+            raise ValueError(f"Error in %define: {input_line}")
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
         # подстановка.
         self.subst(pypp_context)
-
         pypp_context.define(self.variable, self.line)
 
 
 class UndefDirective(Directive):
 
     __regex__ = re.compile(r"^\s*%undef\s+(.*)$")
-    __value__ = re.compile(r"^\s*%undef\s+([^\d][^\s]*)$")
+    __value__ = re.compile(r"^\s*%undef\s+([^\d][^\s]*)\s*$")
 
     def __init__(self, input_line):
         match_line = self.__value__.match(input_line)
@@ -149,7 +149,7 @@ class UndefDirective(Directive):
             self.variable = variable
             super().__init__("")
         else:
-            raise ValueError
+            raise ValueError(f"Error in %undef: {input_line}")
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
         if self.variable in pypp_context.definition:
@@ -164,7 +164,6 @@ class LineDirective(Directive):
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
         # подстановка.
         self.subst(pypp_context)
-
         print(f"{self.line}", end='', file=pypp_output_file)
 
 
