@@ -17,6 +17,7 @@ import sys
 import re
 import argparse
 from os.path import isfile, join
+from collections import OrderedDict
 
 
 class FileReader:
@@ -48,11 +49,11 @@ class FileReader:
 class PyppContext:
 
     def __init__(self):
-        self.definition = {}
+        self.definition = OrderedDict()
         self.path = ["."]
 
     def define(self, name, value):
-        pass
+        self.definition[name] = value
 
     def add_path(self, path):
         if path is not None:
@@ -61,19 +62,30 @@ class PyppContext:
 
 class Directive:
 
+    __regex__ = re.compile(r"")
+
     def __init__(self, input_line):
         self.line = input_line
 
-    def subst(self):
-        pass
+    def subst(self, pypp_context):
+        for var_def in pypp_context.definition.keys():
+            self.line = self.line.replace(var_def, pypp_context.definition[var_def])
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
         raise ValueError
 
+    @classmethod
+    def check(cls, input_line):
+        match_line = cls.__regex__.match(input_line)
+        if match_line:
+            return True
+        else:
+            return False
+
 
 class IncludeDirective(Directive):
 
-    __regex__ = re.compile("^\s*%include\s<(.+)>\s*$")
+    __regex__ = re.compile(r"^\s*%include\s<(.+)>\s*$")
 
     def __init__(self, input_line):
         match_line = self.__regex__.match(input_line)
@@ -83,6 +95,9 @@ class IncludeDirective(Directive):
             raise ValueError
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        # подстановка.
+        self.subst(pypp_context)
+
         # поиск и открытие файла.
         file_name = None
         if isfile(self.line):
@@ -98,7 +113,47 @@ class IncludeDirective(Directive):
 
         # отправить файл в обработку.
         pypp_input_file.push(open(file_name, "r", encoding="utf-8"))
-        #print(f">>>include {self.line}<<<", file=pypp_output_file)
+
+
+class DefineDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%define\s+(.*)$")
+    __value__ = re.compile(r"^\s*%define\s+([^\d][^\s]*)\s*(.*)$")
+
+    def __init__(self, input_line):
+        match_line = self.__value__.match(input_line)
+        if match_line:
+            variable = match_line.group(1)
+            value = match_line.group(2)
+            self.variable = variable
+            super().__init__(value)
+        else:
+            raise ValueError
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        # подстановка.
+        self.subst(pypp_context)
+
+        pypp_context.define(self.variable, self.line)
+
+
+class UndefDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%undef\s+(.*)$")
+    __value__ = re.compile(r"^\s*%undef\s+([^\d][^\s]*)$")
+
+    def __init__(self, input_line):
+        match_line = self.__value__.match(input_line)
+        if match_line:
+            variable = match_line.group(1)
+            self.variable = variable
+            super().__init__("")
+        else:
+            raise ValueError
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        if self.variable in pypp_context.definition:
+            del pypp_context.definition[self.variable]
 
 
 class LineDirective(Directive):
@@ -107,26 +162,24 @@ class LineDirective(Directive):
         super().__init__(input_line)
 
     def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        # подстановка.
+        self.subst(pypp_context)
+
         print(f"{self.line}", end='', file=pypp_output_file)
 
 
-#define_directive = re.compile("^\s*%define\s([^\s]+)(.*)$")
-#undef_directive = re.compile("^\s*%undef\s([^\s]+)\s*$")
 #ifdef_directive = re.compile("^\s*%ifdef\s([^\s]+)\s*$")
 #ifundef_directive = re.compile("^\s*%ifundef\s([^\s]+)\s*$")
 #end_directive = re.compile("^\s*%end\s*$")
 directives = [
-    IncludeDirective,
+    IncludeDirective, DefineDirective, UndefDirective,
 ]
 
 
 def ident_line(line):
     for pypp_directive in directives:
-        try:
+        if pypp_directive.check(line):
             return pypp_directive(line)
-        except ValueError:
-            pass
-
     return LineDirective(line)
     
 
@@ -154,7 +207,6 @@ for line in input_file:
     # подстановка переменных.
     # выполение директив/вывод строки.
     directive = ident_line(line)
-    directive.subst()
     directive.run(input_file, context, output_file)
     
 
