@@ -15,6 +15,7 @@
 
 import sys
 import re
+import argparse
 
 
 class FileReader:
@@ -43,40 +44,54 @@ class FileReader:
                     pass
 
 
+class PyppContext:
+
+    def __init__(self):
+        self.definition = {}
+        self.path = ["."]
+
+    def define(self, name, value):
+        pass
+
+    def add_path(self, path):
+        if path is not None:
+            self.path.extend(path.split(";"))
+
+
 class Directive:
 
-    def __init__(self, line):
-        self.line = line
+    def __init__(self, input_line):
+        self.line = input_line
 
     def subst(self):
         pass
 
-    def run(self):
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
         raise ValueError
 
 
 class IncludeDirective(Directive):
 
-    __regex__ = re.compile("^\s*@include\s<(.+)>\s*$")
+    __regex__ = re.compile("^\s*%include\s<(.+)>\s*$")
 
-    def __init__(self, line):
-        match_line = self.__regex__.match(line)
+    def __init__(self, input_line):
+        match_line = self.__regex__.match(input_line)
         if match_line:
             super().__init__(match_line.group(1))
         else:
             raise ValueError
 
-    def run(self):
-        print(f">>>include {self.line}<<<", end='')
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        print(f">>>include {self.line}<<<", file=pypp_output_file)
 
 
 class LineDirective(Directive):
 
-    def __init__(self, line):
-        super().__init__(line)
+    def __init__(self, input_line):
+        super().__init__(input_line)
 
-    def run(self):
-        print(f">>>{self.line}<<<", end='')
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        print(f"{self.line}", end='', file=pypp_output_file)
 
 
 #define_directive = re.compile("^\s*@define\s([^\s]+)(.*)$")
@@ -90,16 +105,33 @@ directives = [
 
 
 def ident_line(line):
-    for directive in directives:
+    for pypp_directive in directives:
         try:
-            return directive(line)
+            return pypp_directive(line)
         except ValueError:
             pass
 
     return LineDirective(line)
     
 
-input_file = FileReader(sys.stdin)
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input-file", type=str, help="input file name")
+parser.add_argument("-oi", "--output-file", type=str, help="output file name")
+parser.add_argument("-p", "--include-path", type=str, help="search path for include")
+args = parser.parse_args()
+
+if args.input_file is None:
+    input_file = sys.stdin
+else:
+    input_file = open(args.input_file, "r", encoding="utf-8")
+if args.output_file is None:
+    output_file = sys.stdout
+else:
+    output_file = open(args.output_file, "w", encoding="utf-8")
+context = PyppContext()
+context.add_path(args.include_path)
+
+input_file = FileReader(input_file)
 for line in input_file:
     # чтение строки.
     # распознание директив.
@@ -107,7 +139,7 @@ for line in input_file:
     # выполение директив/вывод строки.
     directive = ident_line(line)
     directive.subst()
-    directive.run()
+    directive.run(input_file, context, output_file)
     
 
 # S - правило вывода.
