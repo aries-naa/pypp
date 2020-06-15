@@ -85,7 +85,7 @@ class Directive:
 
 class IncludeDirective(Directive):
 
-    __regex__ = re.compile(r"^\s*%include\s<(.*)>\s*$")
+    __regex__ = re.compile(r"^\s*%include\s.*$")
     __value__ = re.compile(r"^\s*%include\s<(.+)>\s*$")
 
     def __init__(self, input_line):
@@ -118,7 +118,7 @@ class IncludeDirective(Directive):
 
 class DefineDirective(Directive):
 
-    __regex__ = re.compile(r"^\s*%define\s+(.*)$")
+    __regex__ = re.compile(r"^\s*%define\s.*$")
     __value__ = re.compile(r"^\s*%define\s+([^\d][^\s]*)\s*(.*)$")
 
     def __init__(self, input_line):
@@ -139,7 +139,7 @@ class DefineDirective(Directive):
 
 class UndefDirective(Directive):
 
-    __regex__ = re.compile(r"^\s*%undef\s+(.*)$")
+    __regex__ = re.compile(r"^\s*%undef\s+.*$")
     __value__ = re.compile(r"^\s*%undef\s+([^\d][^\s]*)\s*$")
 
     def __init__(self, input_line):
@@ -156,6 +156,82 @@ class UndefDirective(Directive):
             del pypp_context.definition[self.variable]
 
 
+class IfdefDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%ifdef\s.*$")
+    __value__ = re.compile(r"^\s*%ifdef\s+([^\d][^\s]*)\s*(.*)$")
+
+    def __init__(self, input_line):
+        match_line = self.__value__.match(input_line)
+        if match_line:
+            variable = match_line.group(1)
+            self.variable = variable
+            super().__init__("")
+        else:
+            raise ValueError(f"Error in %ifdef: {input_line}")
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        if self.variable in pypp_context.definition:
+            print("!!!!!", self.variable)
+        else:
+            print("@@@@@", self.variable)
+        return
+
+
+class IfndefDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%ifndef\s.*$")
+    __value__ = re.compile(r"^\s*%ifndef\s+([^\d][^\s]*)\s*(.*)$")
+
+    def __init__(self, input_line):
+        match_line = self.__value__.match(input_line)
+        if match_line:
+            variable = match_line.group(1)
+            self.variable = variable
+            super().__init__("")
+        else:
+            raise ValueError(f"Error in %ifndef: {input_line}")
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        if self.variable not in pypp_context.definition:
+            print("not !!!!!", self.variable)
+        else:
+            print("not @@@@@", self.variable)
+        return
+
+
+class EndDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%end\s.*$")
+    __directive__ = re.compile(r"^\s*%end\s*$")
+
+    def __init__(self, input_line):
+        match_line = self.__directive__.match(input_line)
+        if match_line:
+            super().__init__("")
+        else:
+            raise ValueError(f"Error in %end: {input_line}")
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        pass
+
+
+class ElseDirective(Directive):
+
+    __regex__ = re.compile(r"^\s*%else\s.*$")
+    __directive__ = re.compile(r"^\s*%else\s*$")
+
+    def __init__(self, input_line):
+        match_line = self.__directive__.match(input_line)
+        if match_line:
+            super().__init__("")
+        else:
+            raise ValueError(f"Error in %else: {input_line}")
+
+    def run(self, pypp_input_file, pypp_context, pypp_output_file):
+        pass
+
+
 class LineDirective(Directive):
 
     def __init__(self, input_line):
@@ -167,11 +243,8 @@ class LineDirective(Directive):
         print(f"{self.line}", end='', file=pypp_output_file)
 
 
-#ifdef_directive = re.compile("^\s*%ifdef\s([^\s]+)\s*$")
-#ifundef_directive = re.compile("^\s*%ifundef\s([^\s]+)\s*$")
-#end_directive = re.compile("^\s*%end\s*$")
 directives = [
-    IncludeDirective, DefineDirective, UndefDirective,
+    IncludeDirective, DefineDirective, UndefDirective, IfdefDirective, IfndefDirective, EndDirective, ElseDirective
 ]
 
 
@@ -191,7 +264,7 @@ args = parser.parse_args()
 if args.input_file is None:
     input_file = sys.stdin
 else:
-    input_file = open(args.input_file, "r", encoding="utf-8")
+    input_file = FileReader(open(args.input_file, "r", encoding="utf-8"))
 if args.output_file is None:
     output_file = sys.stdout
 else:
@@ -199,26 +272,25 @@ else:
 context = PyppContext()
 context.add_path(args.include_path)
 
-input_file = FileReader(input_file)
-for line in input_file:
-    # чтение строки.
-    # распознание директив.
-    # подстановка переменных.
-    # выполение директив/вывод строки.
-    directive = ident_line(line)
-    directive.run(input_file, context, output_file)
-    
 
+# чтение строки.
+# распознание директив.
+# подстановка переменных.
+# выполение директив/вывод строки.
 # S - правило вывода.
-def pypp_flat():
-    pass
+def pypp_flat(input_file, context, output_file):
+    for line in input_file:
+        directive = ident_line(line)
+        directive.run(input_file, context, output_file)
 
 
 # D - правило вывода.
-def pypp_condition():
+def pypp_condition(input_file, context, output_file):
     pass
 
 
 # E - правило вывода.
-def pypp_else():
+def pypp_else(input_file, context, output_file):
     pass
+
+pypp_flat(input_file, context, output_file)
